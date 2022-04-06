@@ -31,18 +31,6 @@ Under "SPONSORS ADD INFO HERE" heading below, include the following:
 
 ---
 
-## ⭐️ Sponsor: Contest prep
-- [ ] Make sure your code is thoroughly commented using the [NatSpec format](https://docs.soliditylang.org/en/v0.5.10/natspec-format.html#natspec-format).
-- [ ] Modify the bottom of this `README.md` file to describe how your code is supposed to work with links to any relevent documentation and any other criteria/details that the C4 Wardens should keep in mind when reviewing. ([Here's a well-constructed example.](https://github.com/code-423n4/2021-06-gro/blob/main/README.md))
-- [ ] Please have final versions of contracts and documentation added/updated in this repo **no less than 8 hours prior to contest start time.**
-- [ ] Ensure that you have access to the _findings_ repo where issues will be submitted.
-- [ ] Promote the contest on Twitter (optional: tag in relevant protocols, etc.)
-- [ ] Share it with your own communities (blog, Discord, Telegram, email newsletters, etc.)
-- [ ] Optional: pre-record a high-level overview of your protocol (not just specific smart contract functions). This saves wardens a lot of time wading through documentation.
-- [ ] Delete this checklist and all text above the line below when you're ready.
-
----
-
 # Axelar contest details
 - $47,500 USDC main award pot
 - $2,500 USDC gas optimization award pot
@@ -54,4 +42,43 @@ Under "SPONSORS ADD INFO HERE" heading below, include the following:
 
 This repo will be made public before the start of the contest. (C4 delete this line when made public)
 
-[ ⭐️ SPONSORS ADD INFO HERE ]
+# Contest Scope
+
+The contest will focus on Axelar's gateway smart contracts that are deployed on EVM chains
+that process messages generated from the Axelar network (such as minting a certain token),
+and accept messages/token deposits from users/applications.
+
+# Protocol overview
+
+Axelar is a decentralized interoperability network connecting all blockchains, assets and apps through a universal set of protocols and APIs.
+It is built on top off the Cosmos SDK. Users/Applications can use Axelar network to send tokens between any Cosmos and EVM chains. They can also
+send arbitrary messages between EVM chains.
+
+Axelar network's decentralized validators confirm events emitted on EVM chains (such as deposit confirmation and message send),
+and sign off on commands submitted (by automated services) to the gateway smart contracts (such as minting token, and approving message on the destination).
+
+A detailed design can be found here: https://docs.axelar.dev/roles/dev/design
+
+# Areas to focus
+
+We'd like wardens to particularly focus on the following:
+
+1. General message passing: `sendToken`, `contractCallWithToken`, and `contractCall`.
+2. Mints/burns for token transfers.
+3. Authentication of commands: `execute` in `AxelarGatewayMultisig.sol`.
+
+Note: `AxelarGatewaySinglesig.sol` can be ignored as it's the same as `AxelarGatewayMultisig.sol` but designed to work with a single signature (when using threshold signature schemes).
+
+# References
+
+Contracts repo: https://github.com/axelarnetwork/axelar-cgp-solidity
+
+Detailed Nework Design: https://docs.axelar.dev/roles/dev/design
+
+Network resources: https://docs.axelar.dev/resources
+
+General Message Passing Usage: https://docs.axelar.dev/roles/dev/gmp
+
+Example token transfer flow: https://docs.axelar.dev/roles/dev/cli/axl-to-evm
+
+Deployed contracts: https://docs.axelar.dev/releases/mainnet
