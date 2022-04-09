@@ -22,15 +22,14 @@ send arbitrary messages between EVM chains.
 Axelar network's decentralized validators confirm events emitted on EVM chains (such as deposit confirmation and message send),
 and sign off on commands submitted (by automated services) to the gateway smart contracts (such as minting token, and approving message on the destination).
 
-A detailed design can be found here (will be posted soon): https://docs.axelar.dev/roles/dev/design
-
 ## Example flows
 
 ### Token transfer
 
 1. Setup: A wrapped version of Token `A` is deployed (`AxelarGatewayMultisig.deployToken()`)
    on each non-native EVM chain as an ERC-20 token (`BurnableMintableCappedERC20.sol`).
-2. Given the destination chain and address, Axelar network generates a deposit address (the address where `DepositHandler.sol` is deployed) on source chain.
+2. Given the destination chain and address, Axelar network generates a deposit address (the address where `DepositHandler.sol` is deployed,
+   `BurnableMintableCappedERC20.depositAddress()`) on source EVM chain.
 3. User sends their token `A` at that address, and the deposit contract locks the token at the gateway (or burns them for wrapped tokens).
 4. Axelar network validators confirm the deposit `Transfer` event using their RPC nodes for the source chain (using majority voting).
 5. Axelar network prepares a mint command, and validators sign off on it.
@@ -39,9 +38,7 @@ A detailed design can be found here (will be posted soon): https://docs.axelar.d
 
 ### Cross-chain smart contract call
 
-1. Setup
-   1. Destination contract implements the `IAxelarExecutable.sol` interface to receive the message.
-   2. Contract on source chain has approved the gateway contract to spend appropriate amount (`ERC20.approve()`).
+1. Setup: Destination contract implements the `IAxelarExecutable.sol` interface to receive the message.
 2. Smart contract on source chain calls `AxelarGateway.callContractWithToken()` with the destination chain/address, `payload` and token.
 3. An external service stores `payload` in a regular database, keyed by the `hash(payload)`, that anyone can query by.
 4. Similar to above, Axelar validators confirm the `ContractCallWithToken` event.
@@ -54,6 +51,10 @@ A detailed design can be found here (will be posted soon): https://docs.axelar.d
    on the gateway contract.
 9. As part of this, the gateway contract records that the destination address has validated the approval, to not allow a replay.
 10. The destination contract uses the `payload` for it's own application.
+
+### Cross-chain NFT transfer/minter
+
+See this [example](https://github.com/axelarnetwork/axelar-local-dev/tree/main/examples/nftLinker) cross-chain NFT application.
 
 # Smart Contracts
 
@@ -74,42 +75,80 @@ Note: Known issues posted on GitHub aren't considered valid findings: https://gi
 
 #### IAxelarExecutable.sol (56 sloc)
 
+This interface needs to be implemented by the application contract
+to receive cross-chain messages. See the
+[token swapper example](src/test/DestinationSwapExecutable.sol) for an example.
+
 ### Contracts
 
 #### AxelarGatewayProxy.sol (34 sloc)
 
-Our gateway contracts implement the proxy pattern and allow upgrades.
-Calls are delegated to the implementation contract below.
+Our gateway contracts implement the proxy pattern to allow upgrades.
+Calls are delegated to the implementation contract while using the proxy's storage. `setup` is overidden to be an empty method on the proxy contract to prevent anyone besides the proxy contract from calling the implementation's `setup` on the proxy storage.
 
 #### AxelarGateway.sol (477 sloc)
+
+Implementation contract with shared functionality between the multisig
+and singlesig contract versions.
 
 #### AxelarGatewayMultisig.sol (393 sloc)
 
 The implementation contract that accepts commands signed by Axelar network's validators (see `execute`).
 Different commands require different sets of validators to sign (operators vs owners).
-Operators correspond to a subset of Axelar validators, whereas owners are chosen by stake and represent a larger set.
+Operators correspond to a smaller subset of Axelar validators, whereas owners are chosen by stake and represent a larger subset.
 
 #### AdminMultisigBase.sol (134 sloc)
 
+Multisig governance contract. Upgrading the implementation is done via voting on the new implementation address from admin accounts.
+
 #### ERC20.sol (86 sloc)
+
+Base ERC20 contract used to deploy wrapped version of tokens on other chains.
 
 #### ERC20Permit.sol (45 sloc)
 
+Allow an account to issue a spending permit to another account.
+
 #### MintableCappedERC20.sol (25 sloc)
+
+Mintable ERC20 token contract with an optional capped total supply (when `capacity != 0`).
+It also allows us the owner of the ERC20 contract to burn tokens for an account (`IERC20BurnFrom`).
 
 #### BurnableMintableCappedERC20.sol (47 sloc)
 
+The main token contract that's deployed for Axelar wrapped version of tokens on non-native chains.
+This contract allows burning tokens from deposit addresses generated (`depositAddress`) by the Axelar network, where
+users send their deposits. `salt` needed to generate the address is provided in a signed burn command
+from the Axelar network validators.
+
 #### TokenDeployer.sol (13 sloc)
+
+When the Axelar network submits a signed command to deploy a token,
+the token deployer contract is called to deploy the `BurnableMintableCappedERC20` token.
+This is done to reduce the bytecode size of the gateway contract to allow deploying on EVM chains
+with more restrictive gas limits.
 
 #### DepositHandler.sol (22 sloc)
 
+The contract deployed at the deposit addresses that allows burning/locking of the tokens
+sent by the user. It prevents re-entrancy, and while it's methods are permisionless,
+the gateway deploys the deposit handler and burns/locks in the same call (see `_burnToken`).
+
 #### Context.sol (10 sloc)
+
+Safe interface contract.
 
 #### Ownable.sol (18 sloc)
 
+Define ownership of a contract and modifiers for permissioned methods.
+
 #### EternalStorage.sol (63 sloc)
 
+Storage contract for the proxy.
+
 #### ECDSA.sol (24 sloc)
+
+Modified version of OpenZeppelin ECDSA signature authentication check.
 
 # Areas to focus
 
@@ -137,16 +176,14 @@ npm run test  # Test with mocha
 
 Contracts repo: https://github.com/axelarnetwork/axelar-cgp-solidity
 
-Detailed Nework Design: https://docs.axelar.dev/roles/dev/design
-
 Network resources: https://docs.axelar.dev/resources
 
 Token transfer app: https://satellite.axelar.network/
 
-General Message Passing Usage: https://docs.axelar.dev/roles/dev/gmp
+General Message Passing Usage: https://docs.axelar.dev/dev/gmp
 
-Example token transfer flow: https://docs.axelar.dev/roles/dev/cli/axl-to-evm
+Example token transfer flow: https://docs.axelar.dev/dev/cli/axl-to-evm
 
-Deployed contracts: https://docs.axelar.dev/releases/mainnet
+Deployed contracts: https://docs.axelar.dev/resources/mainnet
 
 EVM module of the Axelar network that prepares commands for the gateway: https://github.com/axelarnetwork/axelar-core/blob/main/x/evm/keeper/msg_server.go
