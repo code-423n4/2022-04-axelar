@@ -56,7 +56,8 @@ and sign off on commands submitted (by automated services) to the gateway smart 
 
 1. Setup:
    1. Destination contract implements the `IAxelarExecutable.sol` interface to receive the message.
-   2. If sending an `External` token, source contract needs to call `ERC20.approve()` for the gateway contract beforehand to allow transferring the tokens from the `sender` to the gateway.
+   2. If sending a token, source contract needs to call `ERC20.approve()` beforehand to allow the gateway contract
+   to transfer the specified `amount` on behalf of the sender/source contract.
 2. Smart contract on source chain calls `AxelarGateway.callContractWithToken()` with the destination chain/address, `payload` and token.
 3. An external service stores `payload` in a regular database, keyed by the `hash(payload)`, that anyone can query by.
 4. Similar to above, Axelar validators confirm the `ContractCallWithToken` event.
